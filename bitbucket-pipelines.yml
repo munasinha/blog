@@ -1,0 +1,44 @@
+image: node:14.17-buster
+
+pipelines:
+  branches:
+    master:
+      - step:
+          name: Build the Project
+          caches:
+            - node
+          script:
+            - npm install npm@latest -g
+            - npm install -g @angular/cli
+            - npm install
+            - ng build --prod
+            - apt update && apt install zip
+            - zip -r deployBundle.zip . -x *.git* bitbucket-pipelines.yml
+          artifacts:
+            - "*.zip"
+            - dist/**
+      - step:
+          name: Deploy to Production
+          deployment: Production
+          script:
+            - pipe: atlassian/aws-code-deploy:1.0.0
+              variables:
+                AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
+                AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+                AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+                APPLICATION_NAME: $APPLICATION_NAME
+                ZIP_FILE: "deployBundle.zip"
+                S3_BUCKET: $S3_BUCKET
+                COMMAND: "upload"
+            - pipe: atlassian/aws-code-deploy:1.0.0
+              variables:
+                AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
+                AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+                AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+                APPLICATION_NAME: $APPLICATION_NAME
+                DEPLOYMENT_GROUP: $DEPLOYMENT_GROUP
+                S3_BUCKET: $S3_BUCKET
+                COMMAND: "deploy"
+                WAIT: "true"
+                IGNORE_APPLICATION_STOP_FAILURES: "true"
+                FILE_EXISTS_BEHAVIOR: "OVERWRITE"
